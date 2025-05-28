@@ -16,7 +16,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # Schema: https://crossref.org/schemas/common5.4.0.xsd
 # Guide: https://www.crossref.org/documentation/schema-library/markup-guide-metadata-segments/
 
-# Use as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS n -v
+# Use as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS y -v
 
 # CrossRef publication types (supported)
 #
@@ -47,13 +47,13 @@ create_doi = True
 
 # Command line params
 
-parser = ArgumentParser(description='Script for creating a new CrossRef DOI from a Chalmers CRIS publication record (semi)manually. Use as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS n -v',
+parser = ArgumentParser(description='Script for creating a new CrossRef DOI from a Chalmers CRIS publication record (semi)manually. Use as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS y -v',
                         formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("-v", "--verbose", action="store_true", help="increase verbosity")
 parser.add_argument("-p", "--pubid", help="Chalmers Research publication ID (long, guid)", required=True)
 parser.add_argument("-d", "--doi", help="DOI, without prefix", required=True)
 parser.add_argument("-t", "--pubtype", help="Publication type (CrossRef). Allowed values: book, dissertation, preprint, report", required=True)
-parser.add_argument("-u", "--updateCRIS", default="y", help="Add the new DOI to the CRIS record (y/n, default:y)", required=True)
+parser.add_argument("-u", "--updateCRIS", default="y", help="Add the new DOI to the CRIS record (y/n, default:y)")
 args = parser.parse_args()
 
 # Metadata
@@ -65,7 +65,11 @@ update_cris = args.updateCRIS
 
 # Validate input
 if pubtype not in ['book','dissertation','preprint','report']:
-    print('ERROR: Pubtype has to be one of book, dissertation, preprint, report')
+    print('ERROR: Pubtype has to be one of "book", "dissertation", "preprint", "report"')
+    exit()
+
+if update_cris not in ['y','n']:
+    print('ERROR! UpdateCRIS (-u) has to be y(es) or n(no), default yes (if empty)')
     exit()
 
 if str(args.doi).startswith('10.63959'):
@@ -131,7 +135,7 @@ try:
         if 'IdentifierDoi' in publ:
             if len(publ['IdentifierDoi']) > 0:
 
-                print('\nIt seems this item already has a DOI in Research: ' + str(publ['IdentifierDoi'][0]) + '\nDo you really wish to continue (this would add a possible duplicate)? (y/n)')
+                print('\nIt seems this item already has a DOI in Research:  ' + str(publ['IdentifierDoi'][0]) + '\nDo you really wish to continue (this would add a possible duplicate)? (y/n)')
                 yes = {'yes', 'y', 'ye', 'j', 'ja', ''}
                 no = {'no', 'n', 'nej'}
                 choice = input().lower()
