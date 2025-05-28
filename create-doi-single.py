@@ -16,6 +16,8 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # Schema: https://crossref.org/schemas/common5.4.0.xsd
 # Guide: https://www.crossref.org/documentation/schema-library/markup-guide-metadata-segments/
 
+# Use as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS n -v
+
 # CrossRef publication types (supported)
 #
 # book
@@ -61,6 +63,19 @@ doi_id = str(doi_prefix) + '/' + args.doi
 cris_pubid = args.pubid
 update_cris = args.updateCRIS
 
+# Validate input
+if pubtype not in ['book','dissertation','preprint','report']:
+    print('ERROR: Pubtype has to be one of book, dissertation, preprint, report')
+    exit()
+
+if str(args.doi).startswith('10.63959'):
+    print('ERROR: DOI should be WITHOUT prefix!')
+    exit()
+
+if len(cris_pubid) < 12:
+    print('ERROR: Publication ID should be the long (guid) id!')
+    exit()
+
 instname_txt = 'Chalmers University of Technology'
 instplace_txt = 'Sweden'
 ror_id = 'https://ror.org/040wg7k59'
@@ -77,8 +92,7 @@ degree_abbrev = '' # doc or lic?
 
 # Retrieve publication record from Chalmers Research
 
-#cris_query = '_exists_%3AValidatedBy%20%26%26%20PublicationType.Id%3A%22' + str(pubtype_id) + '%22%20%26%26%20!_exists_%3AIdentifierDoi%20%26%26%20CreatedDate%3A%5B2023-06-01%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=' + str(max_records) + '&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%20%20%20%20'
-cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CIdentifierDoi%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -112,6 +126,25 @@ try:
                 isbn = str(publ['IdentifierIsbn'][0])
                 isbn_normal = isbn.replace('-', '')
                 #print(str(isbn_normal ))
+        
+        # Check if item already has a DOI (just in case)
+        if 'IdentifierDoi' in publ:
+            if len(publ['IdentifierDoi']) > 0:
+
+                print('\nIt seems this item already has a DOI in Research: ' + str(publ['IdentifierDoi'][0]) + '\nDo you really wish to continue (this would add a possible duplicate)? (y/n)')
+                yes = {'yes', 'y', 'ye', 'j', 'ja', ''}
+                no = {'no', 'n', 'nej'}
+                choice = input().lower()
+                if choice in yes:
+                    print('Ok')
+                    # continue
+                elif choice in no:
+                    print('Ok, exiting...')
+                    exit()
+
+                isbn = str(publ['IdentifierIsbn'][0])
+                isbn_normal = isbn.replace('-', '')
+                #print(str(isbn_normal ))
 
         abstract_txt = ''
         if ('Abstract' in publ):
@@ -132,12 +165,18 @@ try:
                         incl_doi_request_data = requests.get(url=incl_doi_request_url, headers=incl_doi_request_headers).text
                         incl_doi_request_publs = json.loads(incl_doi_request_data)
                         pubinc = incl_doi_request_publs['Publications'][0]
-                        print(pubinc)
+                        #print(pubinc)
                         if 'IdentifierDoi' in pubinc:
                             if len(pubinc['IdentifierDoi']) > 0:
                                 included_paper_dois.append(str(pubinc['IdentifierDoi'][0]))
 
         lang = publ['Language']['Iso']
+        cris_pubtype = publ['PublicationType']['NameEng']
+
+        if cris_pubtype == 'Doctoral thesis':
+            degree_abbrev = 'PhD'
+        if cris_pubtype == 'Licentiate thesis':
+            degree_abbrev = 'Licentiate'
 
         disp_date = ''
         if 'DispDate' in publ:
@@ -163,7 +202,7 @@ try:
         if title_txt:
             title_clean = BeautifulSoup(title_txt.rstrip('\r\n').strip(), "lxml").text
 
-        print('\nDOI: ' + doi_id + '\nTitle: ' + title_txt + '\nResearch Pubtype: ' + str(publ['PublicationType']['NameEng']) + '\nCrossRef Pubtype: ' + pubtype + '\nResearch ID: ' + cris_pubid + '\nUpdate Research?: ' + update_cris + '\n\nShould we create a DOI for this? (y/n)')
+        print('\nITEM DETAILS\n============\nNew DOI: ' + doi_id + '\nTitle: ' + title_txt + '\nResearch Pubtype: ' + cris_pubtype + '\nCrossRef Pubtype: ' + pubtype + '\nResearch ID: ' + cris_pubid + '\nUpdate Research?: ' + update_cris + '\n\nShould we create a DOI for this? (y/n)')
         yes = {'yes', 'y', 'ye', 'j', 'ja', ''}
         no = {'no', 'n', 'nej'}
         choice = input().lower()
@@ -202,9 +241,6 @@ try:
             root = ET.Element("doi_batch", 
                                 {attr_qname: "http://www.crossref.org/schema/5.4.0 https://www.crossref.org/schemas/crossref5.4.0.xsd"},
                                 version=version)
-
-            #root = ET.Element(ET.QName(ns_map["xsi"], "doi_batch"))
-
             head = ET.SubElement(root, "head")
             ET.SubElement(head, "doi_batch_id").text = doi_id
             ET.SubElement(head, "timestamp").text = create_date
@@ -244,8 +280,7 @@ try:
                             instplace = ET.SubElement(institution, "institution_place").text = aff['OrganizationData']['Country']
                         for orgid in aff['OrganizationData']['Identifiers']:
                             if orgid['Type']['Value'] == 'ROR_ID':
-                                ror = ET.SubElement(institution, "institution_id", type="ror").text = str(orgid['Value'])      
-
+                                ror = ET.SubElement(institution, "institution_id", type="ror").text = str(orgid['Value'])
             titles = ET.SubElement(publication, "titles")
             title = ET.SubElement(titles, "title").text = title_clean
             if pubtype == 'dissertation':
