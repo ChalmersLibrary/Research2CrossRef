@@ -1,0 +1,14 @@
+CROSSREF_API_EP=https://test.crossref.org/servlet/deposit
+CROSSREF_UID=(CrossRef User ID)
+CROSSREF_PW=(CrossRef password)
+CROSSREF_ROLE=chxx
+DOI_PREFIX=10.123456
+CRIS_BASE_URL=https://research.chalmers.se/en/publication/
+CRIS_API_EP=(link to Research Publications API endpoint)
+CRIS_API_UID=uid
+CRIS_API_PW=pw
+LOGFILE=cth2crossref.log
+RUNTIME=lastrun.txt
+PUBTYPE_ID=645ba094-942d-400a-84cc-ec47ee01ec48
+MAXRECORDS=5
+CREATE_DOI=False
