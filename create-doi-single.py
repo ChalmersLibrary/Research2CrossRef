@@ -47,13 +47,13 @@ create_doi = True
 
 # Command line params
 
-parser = ArgumentParser(description='Script for creating a new CrossRef DOI from a Chalmers CRIS publication record (semi)manually. Use as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS y -v',
+parser = ArgumentParser(description='Script for creating a new CrossRef DOI from a Chalmers CRIS publication record (semi)manually. \nUse as (example): python3 create-doi-single.py --pubid "6276a252-7aed-444a-8528-2a4517789c9d" --doi "test.001.aaa" --pubtype report --updateCRIS y -v',
                         formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("-v", "--verbose", action="store_true", help="increase verbosity")
 parser.add_argument("-p", "--pubid", help="Chalmers Research publication ID (long, guid)", required=True)
 parser.add_argument("-d", "--doi", help="DOI, without prefix", required=True)
 parser.add_argument("-t", "--pubtype", help="Publication type (CrossRef). Allowed values: book, dissertation, preprint, report", required=True)
-parser.add_argument("-u", "--updateCRIS", default="y", help="Add the new DOI to the CRIS record (y/n, default:y)")
+parser.add_argument("-u", "--updateCRIS", default="y", help="Add the new DOI to the CRIS record (y/n)")
 args = parser.parse_args()
 
 # Metadata
@@ -96,7 +96,7 @@ degree_abbrev = '' # doc or lic?
 
 # Retrieve publication record from Chalmers Research
 
-cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CIdentifierDoi%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CIdentifierDoi%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -129,12 +129,10 @@ try:
             if len(publ['IdentifierIsbn']) > 0:
                 isbn = str(publ['IdentifierIsbn'][0])
                 isbn_normal = isbn.replace('-', '')
-                #print(str(isbn_normal ))
         
         # Check if item already has a DOI (just in case)
         if 'IdentifierDoi' in publ:
             if len(publ['IdentifierDoi']) > 0:
-
                 print('\nIt seems this item already has a DOI in Research:  ' + str(publ['IdentifierDoi'][0]) + '\nDo you really wish to continue (this would add a possible duplicate)? (y/n)')
                 yes = {'yes', 'y', 'ye', 'j', 'ja', ''}
                 no = {'no', 'n', 'nej'}
@@ -145,10 +143,6 @@ try:
                 elif choice in no:
                     print('Ok, exiting...')
                     exit()
-
-                isbn = str(publ['IdentifierIsbn'][0])
-                isbn_normal = isbn.replace('-', '')
-                #print(str(isbn_normal ))
 
         abstract_txt = ''
         if ('Abstract' in publ):
@@ -244,6 +238,7 @@ try:
 
             root = ET.Element("doi_batch", 
                                 {attr_qname: "http://www.crossref.org/schema/5.4.0 https://www.crossref.org/schemas/crossref5.4.0.xsd"},
+                                xmlns='http://www.crossref.org/schema/5.4.0',
                                 version=version)
             head = ET.SubElement(root, "head")
             ET.SubElement(head, "doi_batch_id").text = doi_id
@@ -265,59 +260,79 @@ try:
                 publication = ET.SubElement(publication_report, "report-paper_metadata", language=lang)        
             contributors = ET.SubElement(publication, "contributors")
             if authors:
+                seq = 0
+                seq_txt = 'first'
                 for a in authors:
-                    person_name = ET.SubElement(contributors, "person_name", contributor_role="author")
+                    if seq == 0:
+                        seq_txt = 'first'
+                    else:
+                        seq_txt = 'additional'
+                    person_name = ET.SubElement(contributors, "person_name", contributor_role="author", sequence=seq_txt)
                     ET.SubElement(person_name, "given_name").text = a['PersonData']['FirstName']
                     ET.SubElement(person_name, "surname").text = a['PersonData']['LastName']
-                    if 'IdentifierOrcid' in a['PersonData']:
-                         if len(a['PersonData']['IdentifierOrcid']) > 0:
-                            orcid = ET.SubElement(person_name, "ORCID", authenticated = "True").text = str(a['PersonData']['IdentifierOrcid'][0])  
                     affiliations = ET.SubElement(person_name, "affiliations")
                     for aff in a['Organizations']:
                         institution = ET.SubElement(affiliations, "institution")
                         if str(aff['OrganizationData']['OrganizationTypes'][0]['NameEng']).startswith('Chalmers'):
+                            if pubtype in ['dissertation','report','book','preprint']:
+                                instname = ET.SubElement(institution, "institution_name").text = instname_txt
                             ror = ET.SubElement(institution, "institution_id", type="ror").text = ror_id
-                            instname = ET.SubElement(institution, "institution_name").text = instname_txt
-                            instplace = ET.SubElement(institution, "institution_place").text = instplace_txt
                         else:
-                            instname = ET.SubElement(institution, "institution_name").text = aff['OrganizationData']['NameEng']
-                            instplace = ET.SubElement(institution, "institution_place").text = aff['OrganizationData']['Country']
+                            if pubtype in ['dissertation','report','book','preprint']:
+                                instname = ET.SubElement(institution, "institution_name").text = aff['OrganizationData']['NameEng']
+                            else:
+                                instname = ET.SubElement(institution, "institution_acronym").text = aff['OrganizationData']['NameEng']
                         for orgid in aff['OrganizationData']['Identifiers']:
                             if orgid['Type']['Value'] == 'ROR_ID':
                                 ror = ET.SubElement(institution, "institution_id", type="ror").text = str(orgid['Value'])
+                        if 'City' in aff['OrganizationData']:
+                            instplace = ET.SubElement(institution, "institution_place").text = str(aff['OrganizationData']['City']) + ', ' + str(aff['OrganizationData']['Country'])
+                        else:    
+                            instplace = ET.SubElement(institution, "institution_place").text = str(aff['OrganizationData']['Country'])
+                    if 'IdentifierOrcid' in a['PersonData']:
+                         if len(a['PersonData']['IdentifierOrcid']) > 0:
+                            orcid = ET.SubElement(person_name, "ORCID", authenticated = "true").text = "https://orcid.org/" + str(a['PersonData']['IdentifierOrcid'][0])  
+                    seq += 1
             titles = ET.SubElement(publication, "titles")
             title = ET.SubElement(titles, "title").text = title_clean
+            if pubtype in ['preprint']:
+                posted_date = ET.SubElement(publication, "posted_date")
+                posted_year = ET.SubElement(posted_date, "year").text = year
+            if abstract_clean:
+                abstract = ET.SubElement(publication, ET.QName(ns_map["jats"], "abstract"))
+                abstract_p = ET.SubElement(abstract, ET.QName(ns_map["jats"], "p")).text = abstract_clean
             if pubtype == 'dissertation':
                 if disp_date:
                     if len(disp_date) > 0:
                         approvaldate = ET.SubElement(publication, "approval_date")
-                        aday = ET.SubElement(approvaldate, "day").text = disp_date[8:10]
                         amonth = ET.SubElement(approvaldate, "month").text = disp_date[5:7]
+                        aday = ET.SubElement(approvaldate, "day").text = disp_date[8:10]
                         ayear = ET.SubElement(approvaldate, "year").text = disp_date[0:4]
             if pubtype == 'dissertation':
                 institution_publ = ET.SubElement(publication, "institution")
                 ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
-                instname_publ = ET.SubElement(institution_publ, "institution_name", language=lang).text = instname_txt
+                #instname_publ = ET.SubElement(institution_publ, "institution_name", language=lang).text = instname_txt
             if degree_abbrev:
                 degree = ET.SubElement(publication, "degree").text = degree_abbrev
-            version = ET.SubElement(publication, "version")
-            version_info = ET.SubElement(version, "version_info").text = version_enum
-            if abstract_clean:
-                abstract = ET.SubElement(publication, ET.QName(ns_map["jats"], "abstract"))
-                abstract_p = ET.SubElement(abstract, ET.QName(ns_map["jats"], "p")).text = abstract_clean
-            pubdate = ET.SubElement(publication, "publication_date", media_print = "print").text = year
-            if itemnumber:
-                itemnumber = ET.SubElement(publication, "item_number", type = "institution").text = itemnumber
+            if pubtype in ['report','book']:
+                pubdate = ET.SubElement(publication, "publication_date", media_type = "online")
+                pubyear = ET.SubElement(pubdate, "year").text = year
+            #if itemnumber:
+            #    itemnumber = ET.SubElement(publication, "item_number", type = "institution").text = itemnumber
             if isbn:
                 isbn_print = ET.SubElement(publication, "isbn", media_type="print").text = isbn
-            if chalmers_publ:
-                publisher = ET.SubElement(publication, "publisher").text = instname_txt
-            if included_paper_dois:
-                related_ids = ET.SubElement(publication, "relatedIdentifiers")
-                for incl_doi in included_paper_dois:
-                    related_doi = ET.SubElement(related_ids, "relatedIdentifier", relatedIdentifierType="DOI", relationType="HasPart").text = incl_doi.strip()
+            if chalmers_publ and pubtype in ['report','book']:
+                publisher = ET.SubElement(publication, "publisher")
+                publisher_name = ET.SubElement(publisher, "publisher_name").text = instname_txt
+            #if included_paper_dois:
+            #    related_ids = ET.SubElement(publication, "relatedIdentifiers")
+            #    for incl_doi in included_paper_dois:
+            #        related_doi = ET.SubElement(related_ids, "relatedIdentifier", relatedIdentifierType="DOI", relationType="HasPart").text = incl_doi.strip()
+            if pubtype in ['dissertation','report','preprint']:
+                version_info = ET.SubElement(publication, "version_info")
+                version = ET.SubElement(version_info, "version").text = version_enum
             doi_data = ET.SubElement(publication, "doi_data")
-            doi = ET.SubElement(doi_data, "doi_data").text = doi_id
+            doi = ET.SubElement(doi_data, "doi").text = doi_id
             resource = ET.SubElement(doi_data, "resource").text = cris_url
 
             # Create file
