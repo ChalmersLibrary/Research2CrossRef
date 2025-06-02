@@ -43,7 +43,7 @@ pubtype_id = os.getenv("PUBTYPE_ID")
 max_records = os.getenv("MAXRECORDS")
 
 # debug
-create_doi = True
+create_doi = False
 
 # Command line params
 
@@ -105,16 +105,19 @@ try:
     research_lookup_data = requests.get(url=research_lookup_url, headers=research_lookup_headers).text
     research_publ = json.loads(research_lookup_data)
 
-    publ = research_publ['Publications'][0]
+    publ = ''
+    if 'Publications' in research_publ:
+        if len(research_publ['Publications']) > 0:
+            publ = research_publ['Publications'][0]
+    else:
+        print('ERROR! No Research publication found for id ' + cris_pubid + ', exiting!')
+        exit()
 
     if publ:
         print('Found publication ' + str(cris_pubid) + ' in Research.')
         
         # Loop through the pub data and create a new DOI accordingly
         
-        # Metadata
-        #degree_abbrev = 'PhD'
-
         xml_filename = ''
         root = ''
 
@@ -132,8 +135,8 @@ try:
         
         # Check if item already has a DOI (just in case)
         if 'IdentifierDoi' in publ:
-            if len(publ['IdentifierDoi']) > 0:
-                print('\nIt seems this item already has a DOI in Research:  ' + str(publ['IdentifierDoi'][0]) + '\nDo you really wish to continue (this would add a possible duplicate)? (y/n)')
+            if len(publ['IdentifierDoi']) > 0 and update_cris == 'y':
+                print('\nIt seems this item already has a DOI in Research:  ' + str(publ['IdentifierDoi'][0]) + '\nIs this correct? Do you wish to continue (this would add a possible duplicate)? (y/n)')
                 yes = {'yes', 'y', 'ye', 'j', 'ja', ''}
                 no = {'no', 'n', 'nej'}
                 choice = input().lower()
@@ -324,6 +327,7 @@ try:
             if chalmers_publ and pubtype in ['report','book']:
                 publisher = ET.SubElement(publication, "publisher")
                 publisher_name = ET.SubElement(publisher, "publisher_name").text = instname_txt
+            # Adding included papers as relations is currently not supported...
             #if included_paper_dois:
             #    related_ids = ET.SubElement(publication, "relatedIdentifiers")
             #    for incl_doi in included_paper_dois:
@@ -446,7 +450,7 @@ try:
         # debug
         #exit()
     else:
-        print('No publs found, exiting!')
+        print('ERROR! No Research publication found for id ' + cris_pubid + ', exiting!')
         exit()
 
 except requests.exceptions.HTTPError as e:
