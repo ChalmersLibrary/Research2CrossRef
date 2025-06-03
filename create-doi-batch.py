@@ -10,7 +10,7 @@ import os
 import json
 from time import sleep
 
-# Script for batch creating new CrossRef DOIs from Chalmers CRIS publication records.
+# Script for batch creating new CrossRef DOIs from Chalmers CRIS publication records (Doctoral theses only!).
 # Sample XML: https://gitlab.com/crossref/schema/-/blob/master/best-practice-examples/dissertation.5.4.0.xml
 # Schema: https://crossref.org/schemas/common5.4.0.xsd
 # Guide: https://www.crossref.org/documentation/schema-library/markup-guide-metadata-segments/
@@ -29,6 +29,7 @@ doi_prefix = os.getenv("DOI_PREFIX")
 cris_base_url = os.getenv("CRIS_BASE_URL")
 cris_api_ep = os.getenv("CRIS_API_EP")
 pubtype_id = os.getenv("PUBTYPE_ID")
+start_date = os.getenv("START_DATE")
 max_records = os.getenv("MAXRECORDS")
 
 instname_txt = 'Chalmers University of Technology'
@@ -38,6 +39,10 @@ ror_id = 'https://ror.org/040wg7k59'
 depositor_name = 'Chalmers Research Support'
 depositor_email = 'research.lib@chalmers.se'
 cris_updated_by = 'crossref/doi'
+cris_update = 'no'
+
+# Debug
+cris_update = False
 
 # Retrieve publication records from Chalmers Research
 
@@ -53,7 +58,7 @@ cris_updated_by = 'crossref/doi'
 # IsLocal:true
 # IsMainFulltext:true
 
-cris_query = '_exists_%3AValidatedBy%20%26%26%20PublicationType.Id%3A%22' + str(pubtype_id) + '%22%20%26%26%20!_exists_%3AIdentifierDoi%20%26%26%20CreatedDate%3A%5B2023-06-01%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=' + str(max_records) + '&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%20%20%20%20'
+cris_query = '_exists_%3AValidatedBy%20%26%26%20PublicationType.Id%3A%22' + str(pubtype_id) + '%22%20%26%26%20!_exists_%3AIdentifierDoi%20%26%26%20CreatedDate%3A%5B' + str(start_date) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=' + str(max_records) + '&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers%20%20%20%20'
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -76,6 +81,15 @@ try:
             xml_filename = ''
             root = ''
 
+            # Check if the publ already has a DOI, in that case the CRIS record should not be updated (should already be excluded by the query)
+            if 'IdentifierDoi' in publ:
+                if len(publ['IdentifierDoi']) > 0:
+                    cris_update = 'no'
+                else:
+                    cris_update = 'yes'
+            else:
+                cris_update = 'yes'         
+
             pubid = str(publ['Id'])
             print(str(pubid ))
 
@@ -90,16 +104,11 @@ try:
             if ('Abstract' in publ):
                 abstract_txt = publ['Abstract']
 
-            # Only use first person (should only be 1)
-            author = publ['Persons'][0]['PersonData']
-            author_fname = author['FirstName']
-            author_lname = author['LastName']
-            orcid_txt = ''
-            if 'IdentifierOrcid' in author:
-                if len(author['IdentifierOrcid']) > 0:
-                    orcid_txt = str(author['IdentifierOrcid'][0])
+            # Persons
+            authors = []
+            authors = publ['Persons']
 
-            included_paper_dois = []
+            """ included_paper_dois = []
             if ('IncludedPapers') in publ:
                 if len(publ['IncludedPapers']) > 0:
                     for inclp in publ['IncludedPapers']:
@@ -110,11 +119,10 @@ try:
                         incl_doi_request_data = requests.get(url=incl_doi_request_url, headers=incl_doi_request_headers).text
                         incl_doi_request_publs = json.loads(incl_doi_request_data)
                         pubinc = incl_doi_request_publs['Publications'][0]
-                        print(pubinc)
                         if 'IdentifierDoi' in pubinc:
                             if len(pubinc['IdentifierDoi']) > 0:
                                 included_paper_dois.append(str(pubinc['IdentifierDoi'][0]))
-
+ """
             lang = publ['Language']['Iso']
 
             disp_date = ''
@@ -152,7 +160,7 @@ try:
             namespace = "http://www.crossref.org/schema/5.4.0"
             version = "5.4.0"
 
-            xml_filename = isbn_normal + '.xml'
+            xml_filename = create_date + '.xml'
 
             ns = namespace
             xsi = "http://www.w3.org/2001/XMLSchema-instance" 
@@ -168,10 +176,8 @@ try:
 
             root = ET.Element("doi_batch", 
                                 {attr_qname: "http://www.crossref.org/schema/5.4.0 https://www.crossref.org/schemas/crossref5.4.0.xsd"},
+                                xmlns='http://www.crossref.org/schema/5.4.0',
                                 version=version)
-
-            #root = ET.Element(ET.QName(ns_map["xsi"], "doi_batch"))
-
             head = ET.SubElement(root, "head")
             ET.SubElement(head, "doi_batch_id").text = doi_id
             ET.SubElement(head, "timestamp").text = create_date
@@ -179,48 +185,64 @@ try:
             ET.SubElement(depositor, "depositor_name").text = depositor_name
             ET.SubElement(depositor, "email_address").text = depositor_email
             ET.SubElement(head, "registrant").text = instname_txt
-            body = ET.SubElement(root, "body")
+            body = ET.SubElement(root, "body")    
             publication = ET.SubElement(body, pubtype, publication_type="full_text", language=lang)
             contributors = ET.SubElement(publication, "contributors")
-            person_name = ET.SubElement(contributors, "person_name", sequence="first", contributor_role="author")
-            ET.SubElement(person_name, "given_name").text = author_fname
-            ET.SubElement(person_name, "surname").text = author_lname
-            if orcid_txt:
-                orcid = ET.SubElement(person_name, "ORCID", authenticated = "True").text = orcid_txt
-            affiliations = ET.SubElement(person_name, "affiliations")
-            institution = ET.SubElement(affiliations, "institution")
-            ror = ET.SubElement(institution, "institution_id", type="ror").text = ror_id
-            instname = ET.SubElement(institution, "institution_name").text = instname_txt
-            instplace = ET.SubElement(institution, "institution_place").text = instplace_txt
+            if authors:
+                seq = 0
+                seq_txt = 'first'
+                for a in authors:
+                    if seq == 0:
+                        seq_txt = 'first'
+                    else:
+                        seq_txt = 'additional'
+                    person_name = ET.SubElement(contributors, "person_name", contributor_role="author", sequence=seq_txt)
+                    ET.SubElement(person_name, "given_name").text = a['PersonData']['FirstName']
+                    ET.SubElement(person_name, "surname").text = a['PersonData']['LastName']
+                    affiliations = ET.SubElement(person_name, "affiliations")
+                    for aff in a['Organizations']:
+                        institution = ET.SubElement(affiliations, "institution")
+                        if str(aff['OrganizationData']['OrganizationTypes'][0]['NameEng']).startswith('Chalmers'):
+                            if pubtype in ['dissertation','report','book','preprint']:
+                                instname = ET.SubElement(institution, "institution_name").text = instname_txt
+                            ror = ET.SubElement(institution, "institution_id", type="ror").text = ror_id
+                        else:
+                            if pubtype in ['dissertation','report','book','preprint']:
+                                instname = ET.SubElement(institution, "institution_name").text = aff['OrganizationData']['NameEng']
+                            else:
+                                instname = ET.SubElement(institution, "institution_acronym").text = aff['OrganizationData']['NameEng']
+                        for orgid in aff['OrganizationData']['Identifiers']:
+                            if orgid['Type']['Value'] == 'ROR_ID':
+                                ror = ET.SubElement(institution, "institution_id", type="ror").text = str(orgid['Value'])
+                        if 'City' in aff['OrganizationData']:
+                            instplace = ET.SubElement(institution, "institution_place").text = str(aff['OrganizationData']['City']) + ', ' + str(aff['OrganizationData']['Country'])
+                        else:    
+                            instplace = ET.SubElement(institution, "institution_place").text = str(aff['OrganizationData']['Country'])
+                    if 'IdentifierOrcid' in a['PersonData']:
+                         if len(a['PersonData']['IdentifierOrcid']) > 0:
+                            orcid = ET.SubElement(person_name, "ORCID", authenticated = "true").text = "https://orcid.org/" + str(a['PersonData']['IdentifierOrcid'][0])  
+                    seq += 1
             titles = ET.SubElement(publication, "titles")
             title = ET.SubElement(titles, "title").text = title_clean
-            if disp_date:
-                approvaldate = ET.SubElement(publication, "approval_date")
-                aday = ET.SubElement(approvaldate, "day").text = disp_date[8:10]
-                amonth = ET.SubElement(approvaldate, "month").text = disp_date[5:7]
-                ayear = ET.SubElement(approvaldate, "year").text = disp_date[0:4]
-            institution_publ = ET.SubElement(publication, "institution")
-            ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
-            instname_publ = ET.SubElement(institution_publ, "institution_name", language=lang).text = instname
-            if degree_abbrev:
-                degree = ET.SubElement(publication, "degree").text = degree_abbrev
-            version = ET.SubElement(publication, "version")
-            version_info = ET.SubElement(version, "version_info").text = version_enum
             if abstract_clean:
                 abstract = ET.SubElement(publication, ET.QName(ns_map["jats"], "abstract"))
                 abstract_p = ET.SubElement(abstract, ET.QName(ns_map["jats"], "p")).text = abstract_clean
-            pubdate = ET.SubElement(publication, "publication_date", media_print = "print").text = year
-            if itemnumber:
-                itemnumber = ET.SubElement(publication, "item_number", type = "institution").text = itemnumber
+            if disp_date:
+                if len(disp_date) > 0:
+                    approvaldate = ET.SubElement(publication, "approval_date")
+                    amonth = ET.SubElement(approvaldate, "month").text = disp_date[5:7]
+                    aday = ET.SubElement(approvaldate, "day").text = disp_date[8:10]
+                    ayear = ET.SubElement(approvaldate, "year").text = disp_date[0:4]
+            institution_publ = ET.SubElement(publication, "institution")
+            ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
+            if degree_abbrev:
+                degree = ET.SubElement(publication, "degree").text = degree_abbrev
             if isbn:
                 isbn_print = ET.SubElement(publication, "isbn", media_type="print").text = isbn
-            publisher = ET.SubElement(publication, "publisher").text = instname
-            if included_paper_dois:
-                related_ids = ET.SubElement(publication, "relatedIdentifiers")
-                for incl_doi in included_paper_dois:
-                    related_doi = ET.SubElement(related_ids, "relatedIdentifier", relatedIdentifierType="DOI", relationType="HasPart").text = incl_doi.strip()
+            version_info = ET.SubElement(publication, "version_info")
+            version = ET.SubElement(version_info, "version").text = version_enum
             doi_data = ET.SubElement(publication, "doi_data")
-            doi = ET.SubElement(doi_data, "doi_data").text = doi_id
+            doi = ET.SubElement(doi_data, "doi").text = doi_id
             resource = ET.SubElement(doi_data, "resource").text = cris_url
 
             # Create file
@@ -265,58 +287,63 @@ try:
                     #exit()
                     continue
                 
-                # Update publication record in Research (if ok)
-                print('Updating publication ID: ' + cris_pubid + ' in Research.')
-                research_url = str(cris_api_ep) + cris_pubid
-                research_headers = {'Accept': 'application/json'}
-
-                try:
-                    research_data = requests.get(url=research_url, headers=research_headers).text
-                    # Read response and add updated info
-                    datestring = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
-                    research_publ = json.loads(research_data)
-                    research_publ['UpdatedBy'] = cris_updated_by
-                    research_publ['UpdatedDate'] = datestring
-
-                    new_doi = {}
-                    new_doi_type = {}
-                    new_doi_type['Id'] = '5907253f-7ad4-4b1e-84d1-7e72ea1d92a8'
-                    new_doi['Type'] = new_doi_type
-                    new_doi['CreatedBy'] = cris_updated_by
-                    new_doi['CreatedAt'] = datestring
-                    new_doi['Value'] = doi_id
-
-                    existing_ids = research_publ['Identifiers']
-                    new_ids = {}
-                    new_ids = existing_ids
-                    existing_ids.append(new_doi)
-
-                    research_publ['Identifiers'] = new_ids
-
-                    updated_record = json.dumps(research_publ)
+                # Update publication record in Research (if ok and cris_update=yes)
+                if cris_update == 'yes':
+                    print('Updating publication ID: ' + cris_pubid + ' in Research.')
+                    research_url = str(cris_api_ep) + cris_pubid
+                    research_headers = {'Accept': 'application/json'}
 
                     try:
-                        print('Updating record: ' + cris_pubid + ' in Research\n')
-                        response = requests.put(research_url, json=json.loads(updated_record), headers=research_headers)
-                        if response.status_code == 200:
-                            print(cris_pubid + ' UPDATED\n')
+                        research_data = requests.get(url=research_url, headers=research_headers).text
+                        # Read response and add updated info
+                        datestring = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+                        research_publ = json.loads(research_data)
+                        research_publ['UpdatedBy'] = cris_updated_by
+                        research_publ['UpdatedDate'] = datestring
+
+                        new_doi = {}
+                        new_doi_type = {}
+                        new_doi_type['Id'] = '5907253f-7ad4-4b1e-84d1-7e72ea1d92a8'
+                        new_doi['Type'] = new_doi_type
+                        new_doi['CreatedBy'] = cris_updated_by
+                        new_doi['CreatedAt'] = datestring
+                        new_doi['Value'] = doi_id
+
+                        existing_ids = research_publ['Identifiers']
+                        new_ids = {}
+                        new_ids = existing_ids
+                        existing_ids.append(new_doi)
+
+                        research_publ['Identifiers'] = new_ids
+
+                        updated_record = json.dumps(research_publ)
+
+                        try:
+                            print('Updating record: ' + cris_pubid + ' in Research\n')
+                            response = requests.put(research_url, json=json.loads(updated_record), headers=research_headers)
+                            if response.status_code == 200:
+                                print(cris_pubid + ' UPDATED\n')
+                                with open(logfile, 'a') as lfile:
+                                    lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' has been updated!\n')
+                                    lfile.close()
+                            else:
+                                print(cris_pubid + ' could not be updated! ' + 'Status: ' + str(response.status_code) + '\n')
+                                with open(logfile, 'a') as lfile:
+                                    lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' count NOT be updated!\n')
+                                    lfile.close()
+                        except requests.exceptions.HTTPError as e:
+                            print('Exception.')
                             with open(logfile, 'a') as lfile:
-                                lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' has been updated!\n')
-                                lfile.close()
-                        else:
-                            print(cris_pubid + ' could not be updated! ' + 'Status: ' + str(response.status_code) + '\n')
-                            with open(logfile, 'a') as lfile:
-                                lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' count NOT be updated!\n')
-                                lfile.close()
+                                    lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' count NOT be updated!\n')
+                                    lfile.close()
+                            print('\n')
                     except requests.exceptions.HTTPError as e:
                         print('Exception.')
-                        with open(logfile, 'a') as lfile:
-                                lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' count NOT be updated!\n')
-                                lfile.close()
-                        print('\n')
-
-                except requests.exceptions.HTTPError as e:
-                    print('Exception.')   
+                else:
+                    print('CRIS record was NOT updated with new DOI.')
+                    with open(logfile, 'a') as lfile:
+                        lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' was NOT updated (existing DOI).\n')
+                        lfile.close()       
 
             # Write to log end exit
             with open(logfile, 'a') as lfile:
@@ -328,7 +355,7 @@ try:
                 rtfile.write(runtime_date + '\n')
                 rtfile.close()
 
-        sleep(10)
+        sleep(5)
 
         # debug
         #exit()
