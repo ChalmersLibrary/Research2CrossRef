@@ -23,6 +23,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # book
 # dissertation (both doctoral and lic theses)
 # preprint
+# proceeding (single)
 # report
 #
 
@@ -52,7 +53,7 @@ parser = ArgumentParser(description='Script for creating a new CrossRef DOI from
 parser.add_argument("-v", "--verbose", action="store_true", help="increase verbosity")
 parser.add_argument("-p", "--pubid", help="Chalmers Research publication ID (long, guid)", required=True)
 parser.add_argument("-d", "--doi", help="DOI, without prefix", required=True)
-parser.add_argument("-t", "--pubtype", help="Publication type (CrossRef). Allowed values: book, dissertation, preprint, report", required=True)
+parser.add_argument("-t", "--pubtype", help="Publication type (CrossRef). Allowed values: book, dissertation, preprint, proceeding, report", required=True)
 parser.add_argument("-u", "--updateCRIS", default="y", help="Add the new DOI to the CRIS record (y/n)")
 args = parser.parse_args()
 
@@ -64,8 +65,8 @@ cris_pubid = args.pubid
 update_cris = args.updateCRIS
 
 # Validate input
-if pubtype not in ['book','dissertation','preprint','report']:
-    print('ERROR: Pubtype has to be one of "book", "dissertation", "preprint", "report"')
+if pubtype not in ['book','dissertation','preprint','proceeding','report']:
+    print('ERROR: Pubtype has to be one of "book", "dissertation", "preprint", "proceeding","report"')
     exit()
 
 if update_cris not in ['y','n']:
@@ -81,7 +82,7 @@ if len(cris_pubid) < 12:
     exit()
 
 instname_txt = 'Chalmers University of Technology'
-instplace_txt = 'Sweden'
+instplace_txt = 'Gothenburg, Sweden'
 ror_id = 'https://ror.org/040wg7k59'
 
 depositor_name = 'Chalmers Research Support'
@@ -96,7 +97,7 @@ degree_abbrev = '' # doc or lic?
 
 # Retrieve publication record from Chalmers Research
 
-cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CIdentifierDoi%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CConference%2CIdentifierIsbn%2CIdentifierDoi%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -132,6 +133,11 @@ try:
             if len(publ['IdentifierIsbn']) > 0:
                 isbn = str(publ['IdentifierIsbn'][0])
                 isbn_normal = isbn.replace('-', '')
+
+        conference = []
+        if 'Conference' in publ:
+            if len(publ['Conference']) > 0:
+                conference = publ['Conference']
         
         # Check if item already has a DOI (just in case)
         if 'IdentifierDoi' in publ:
@@ -260,17 +266,25 @@ try:
                 publication = ET.SubElement(body, "posted_content", type=pubtype)
             if pubtype == 'report':
                 publication_report = ET.SubElement(body, "report-paper")
-                publication = ET.SubElement(publication_report, "report-paper_metadata", language=lang)        
-            contributors = ET.SubElement(publication, "contributors")
+                publication = ET.SubElement(publication_report, "report-paper_metadata", language=lang)
+            if pubtype == 'proceeding':
+                publication_proc = ET.SubElement(body, "conference")
+            if pubtype == 'proceeding':
+                contributors = ET.SubElement(publication_proc, "contributors")
+            else:
+                contributors = ET.SubElement(publication, "contributors")
             if authors:
                 seq = 0
                 seq_txt = 'first'
                 for a in authors:
+                    role = 'author'
+                    if pubtype == 'proceeding':
+                        role = 'editor'
                     if seq == 0:
                         seq_txt = 'first'
                     else:
                         seq_txt = 'additional'
-                    person_name = ET.SubElement(contributors, "person_name", contributor_role="author", sequence=seq_txt)
+                    person_name = ET.SubElement(contributors, "person_name", contributor_role=role, sequence=seq_txt)
                     ET.SubElement(person_name, "given_name").text = a['PersonData']['FirstName']
                     ET.SubElement(person_name, "surname").text = a['PersonData']['LastName']
                     affiliations = ET.SubElement(person_name, "affiliations")
@@ -296,12 +310,27 @@ try:
                          if len(a['PersonData']['IdentifierOrcid']) > 0:
                             orcid = ET.SubElement(person_name, "ORCID", authenticated = "true").text = "https://orcid.org/" + str(a['PersonData']['IdentifierOrcid'][0])  
                     seq += 1
-            titles = ET.SubElement(publication, "titles")
-            title = ET.SubElement(titles, "title").text = title_clean
+            if pubtype == 'proceeding':
+                if conference:
+                    event = ET.SubElement(publication_proc, "event_metadata")
+                    event_name = ET.SubElement(event, "conference_name").text = conference['Name']
+                    if 'City' in conference:
+                        if 'Country' in conference:
+                            event_place = ET.SubElement(event, "conference_location").text = str(conference['City']) + ', ' + str(conference['Country']['NameEng'])
+                    if 'StartDate' in conference:
+                        if 'EndDate' in conference:
+                            startdate = str(conference['StartDate'])
+                            enddate = str(conference['EndDate'])
+                            event_dates = ET.SubElement(event, "conference_date", start_month=startdate[5:7], start_year=startdate[0:4], start_day=startdate[8:10], end_month=enddate[5:7], end_year=enddate[0:4], end_day=enddate[8:10])
+                publication = ET.SubElement(publication_proc, "proceedings_metadata", language=lang)
+                proceedings_title = ET.SubElement(publication, "proceedings_title").text = title_clean       
+            if pubtype in ['book', 'dissertation', 'preprint', 'report']:
+                titles = ET.SubElement(publication, "titles")
+                title = ET.SubElement(titles, "title").text = title_clean
             if pubtype in ['preprint']:
                 posted_date = ET.SubElement(publication, "posted_date")
                 posted_year = ET.SubElement(posted_date, "year").text = year
-            if abstract_clean:
+            if abstract_clean and pubtype in ['book', 'dissertation', 'preprint', 'report']:
                 abstract = ET.SubElement(publication, ET.QName(ns_map["jats"], "abstract"))
                 abstract_p = ET.SubElement(abstract, ET.QName(ns_map["jats"], "p")).text = abstract_clean
             if pubtype == 'dissertation':
@@ -317,16 +346,24 @@ try:
                 #instname_publ = ET.SubElement(institution_publ, "institution_name", language=lang).text = instname_txt
             if degree_abbrev:
                 degree = ET.SubElement(publication, "degree").text = degree_abbrev
-            if pubtype in ['report','book']:
+            if chalmers_publ and pubtype in ['proceeding']:
+                publisher = ET.SubElement(publication, "publisher")
+                publisher_name = ET.SubElement(publisher, "publisher_name").text = instname_txt
+                publisher_place = ET.SubElement(publisher, "publisher_place").text = instplace_txt
+            if pubtype in ['report','book','proceeding']:
                 pubdate = ET.SubElement(publication, "publication_date", media_type = "online")
                 pubyear = ET.SubElement(pubdate, "year").text = year
             #if itemnumber:
             #    itemnumber = ET.SubElement(publication, "item_number", type = "institution").text = itemnumber
             if isbn:
-                isbn_print = ET.SubElement(publication, "isbn", media_type="print").text = isbn
+                isbn_print = ET.SubElement(publication, "isbn").text = isbn
+            else:
+                if pubtype in ['proceeding','book']:
+                    isbn_print = ET.SubElement(publication, "noisbn", reason='simple_series')
             if chalmers_publ and pubtype in ['report','book']:
                 publisher = ET.SubElement(publication, "publisher")
                 publisher_name = ET.SubElement(publisher, "publisher_name").text = instname_txt
+                publisher_place = ET.SubElement(publisher, "publisher_place").text = instplace_txt
             # Adding included papers as relations is currently not supported...
             #if included_paper_dois:
             #    related_ids = ET.SubElement(publication, "relatedIdentifiers")
