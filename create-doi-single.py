@@ -343,7 +343,6 @@ try:
             if pubtype == 'dissertation':
                 institution_publ = ET.SubElement(publication, "institution")
                 ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
-                #instname_publ = ET.SubElement(institution_publ, "institution_name", language=lang).text = instname_txt
             if degree_abbrev:
                 degree = ET.SubElement(publication, "degree").text = degree_abbrev
             if chalmers_publ and pubtype in ['proceeding']:
@@ -353,8 +352,6 @@ try:
             if pubtype in ['report','book','proceeding']:
                 pubdate = ET.SubElement(publication, "publication_date", media_type = "online")
                 pubyear = ET.SubElement(pubdate, "year").text = year
-            #if itemnumber:
-            #    itemnumber = ET.SubElement(publication, "item_number", type = "institution").text = itemnumber
             if isbn:
                 isbn_print = ET.SubElement(publication, "isbn").text = isbn
             else:
