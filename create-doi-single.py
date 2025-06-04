@@ -356,7 +356,7 @@ try:
                 isbn_print = ET.SubElement(publication, "isbn").text = isbn
             else:
                 if pubtype in ['proceeding','book']:
-                    isbn_print = ET.SubElement(publication, "noisbn", reason='simple_series')
+                    isbn_print = ET.SubElement(publication, "noisbn", reason='monograph')
             if chalmers_publ and pubtype in ['report','book']:
                 publisher = ET.SubElement(publication, "publisher")
                 publisher_name = ET.SubElement(publisher, "publisher_name").text = instname_txt
