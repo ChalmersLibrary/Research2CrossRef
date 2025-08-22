@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import json
 from time import sleep
+import csv
 
 # Script for batch creating new CrossRef DOIs from Chalmers CRIS publication records (Doctoral theses only!).
 # Sample XML: https://gitlab.com/crossref/schema/-/blob/master/best-practice-examples/dissertation.5.4.0.xml
@@ -23,6 +24,7 @@ crossref_ep = os.getenv("CROSSREF_API_EP")
 crossref_uid = os.getenv("CROSSREF_UID")
 crossref_pw = os.getenv("CROSSREF_PW")
 logfile = os.getenv("LOGFILE")
+pidfile = os.getenv("PUBIDFILE")
 runtime_file = os.getenv("RUNTIME")
 create_doi = os.getenv("CREATE_DOI")
 doi_prefix = os.getenv("DOI_PREFIX")
@@ -31,6 +33,11 @@ cris_api_ep = os.getenv("CRIS_API_EP")
 pubtype_id = os.getenv("PUBTYPE_ID")
 start_date = os.getenv("START_DATE")
 max_records = os.getenv("MAXRECORDS")
+
+# Get last runtime from file
+with open(os.getenv("RUNTIME"), 'r') as file:
+    lastrun_date = file.read().rstrip()
+    lastrun_day = lastrun_date[:10]
 
 instname_txt = 'Chalmers University of Technology'
 instplace_txt = 'Gothenburg, Sweden'
@@ -41,8 +48,9 @@ depositor_email = 'research.lib@chalmers.se'
 cris_updated_by = 'crossref/doi'
 cris_update = 'no'
 
-# Debug
-cris_update = False
+# Debug, test
+cris_update = 'false'
+create_doi = 'false'
 
 # Retrieve publication records from Chalmers Research
 
@@ -50,7 +58,7 @@ cris_update = False
 # IsDraft:false
 # IsDeleted:false
 # ReplacedById:null
-# CreatedDate:[from to *]
+# ValidatedDate:[from to *]
 # PublicationType.Id:645ba094-942d-400a-84cc-ec47ee01ec48 (doc thesis)
 # IdentifierDoi:null
 # IdentifierIsbn:not null
@@ -58,7 +66,8 @@ cris_update = False
 # IsLocal:true
 # IsMainFulltext:true
 
-cris_query = '_exists_%3AValidatedBy%20%26%26%20PublicationType.Id%3A%22' + str(pubtype_id) + '%22%20%26%26%20!_exists_%3AIdentifierDoi%20%26%26%20CreatedDate%3A%5B' + str(start_date) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=' + str(max_records) + '&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers%20%20%20%20'
+cris_query = '_exists_%3AValidatedBy%20%26%26%20PublicationType.Id%3A%22645ba094-942d-400a-84cc-ec47ee01ec48%22%20%26%26%20ValidatedDate%3A%5B' + str(lastrun_day) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=5&start=0&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPersons.Organizations.OrganizationData.DisplayPathEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+#print(cris_query)
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -66,6 +75,7 @@ research_lookup_headers = {'Accept': 'application/json'}
 try:
     research_lookup_data = requests.get(url=research_lookup_url, headers=research_lookup_headers).text
     research_publs = json.loads(research_lookup_data)
+    #print(research_publs)
 
     if research_publs['TotalCount'] > 0:
         print('Found publs: ' + str(research_publs['TotalCount']))
@@ -81,7 +91,21 @@ try:
             xml_filename = ''
             root = ''
 
-            # Check if the publ already has a DOI, in that case the CRIS record should not be updated (should already be excluded by the query)
+            pubid = str(publ['Id'])
+            print(str(pubid ))
+            isbn = str(publ['IdentifierIsbn'][0])
+            isbn_normal = isbn.replace('-', '')
+            print(str(isbn_normal ))
+            doi_id = str(doi_prefix) + '/cth.diss/' + isbn_normal
+            
+            # Check if DOI has already been created for this item
+            with open(pidfile, mode='r', ) as infile:
+                for row in csv.reader(infile, dialect='excel-tab'):
+                    if row[0] == pubid and row[1] == doi_id:
+                        print('DOI has already been created for ' + pubid)
+                        create_doi = 'false'
+
+            # Check if the publ already has a DOI, in that case the CRIS record should not be updated
             if 'IdentifierDoi' in publ:
                 if len(publ['IdentifierDoi']) > 0:
                     cris_update = 'no'
@@ -90,16 +114,10 @@ try:
             else:
                 cris_update = 'yes'         
 
-            pubid = str(publ['Id'])
-            print(str(pubid ))
-
             title_txt = publ['Title']
             version_enum = '1'
             year = str(publ['Year'])
-            isbn = str(publ['IdentifierIsbn'][0])
-            isbn_normal = isbn.replace('-', '')
-            print(str(isbn_normal ))
-
+            
             abstract_txt = ''
             if ('Abstract' in publ):
                 abstract_txt = publ['Abstract']
@@ -107,6 +125,8 @@ try:
             # Persons
             authors = []
             authors = publ['Persons']
+
+            department = ''
 
             """ included_paper_dois = []
             if ('IncludedPapers') in publ:
@@ -122,7 +142,7 @@ try:
                         if 'IdentifierDoi' in pubinc:
                             if len(pubinc['IdentifierDoi']) > 0:
                                 included_paper_dois.append(str(pubinc['IdentifierDoi'][0]))
- """
+            """
             lang = publ['Language']['Iso']
 
             disp_date = ''
@@ -138,7 +158,6 @@ try:
                     
             cris_pubid = pubid
             cris_url = str(cris_base_url) + cris_pubid
-            doi_id = str(doi_prefix) + '/' + isbn_normal
             create_date = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             runtime_date = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
 
@@ -201,6 +220,7 @@ try:
                     ET.SubElement(person_name, "surname").text = a['PersonData']['LastName']
                     affiliations = ET.SubElement(person_name, "affiliations")
                     for aff in a['Organizations']:
+                        department = str(aff['OrganizationData']['DisplayPathEng'])
                         institution = ET.SubElement(affiliations, "institution")
                         if str(aff['OrganizationData']['OrganizationTypes'][0]['NameEng']).startswith('Chalmers'):
                             if pubtype in ['dissertation','report','book','preprint']:
@@ -235,6 +255,8 @@ try:
                     ayear = ET.SubElement(approvaldate, "year").text = disp_date[0:4]
             institution_publ = ET.SubElement(publication, "institution")
             ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
+            if department:
+                dept_publ = ET.SubElement(institution_publ, "institution_department").text = department
             if degree_abbrev:
                 degree = ET.SubElement(publication, "degree").text = degree_abbrev
             if isbn:
@@ -257,10 +279,9 @@ try:
             # Post XML to CrossRef endpoint
             # https://www.crossref.org/documentation/register-maintain-records/direct-deposit-xml/https-post/
 
-            if create_doi:
-                    
+            if create_doi == 'true':                    
                 files = {
-                        'operation': (None, 'doQueryUpload'),
+                        'operation': (None, 'doMDUpload'),
                         'login_id': (None, crossref_uid),
                         'login_passwd': (None, crossref_pw),
                         'fname': ('[filename]', open(xml_filename, 'rb'))
@@ -343,14 +364,21 @@ try:
                     print('CRIS record was NOT updated with new DOI.')
                     with open(logfile, 'a') as lfile:
                         lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' was NOT updated (existing DOI).\n')
-                        lfile.close()       
+                        lfile.close()
+            else:
+                print("DOI " + doi_id + " was NOT created, due to system settings or it already exists")      
 
-            # Write to log end exit
+            # Write to log
             with open(logfile, 'a') as lfile:
                 lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tCreated DOI: ' + doi_id + ' for Research publ: ' + cris_url + '. Filename: ' + xml_filename + '\n')
                 lfile.close()
 
-            # Write runtime timestamp to file (only if all has finished without issues)
+            # Write CRIS pubid to file
+            with open(pidfile, 'a') as pfile:
+                pfile.write(cris_pubid + '\t' + str(doi_id) + '\n')
+                pfile.close()
+
+            # Write runtime timestamp to file
             with open(runtime_file, 'w') as rtfile:
                 rtfile.write(runtime_date + '\n')
                 rtfile.close()
@@ -358,7 +386,7 @@ try:
         sleep(5)
 
         # debug
-        #exit()
+        # exit()
     else:
         print('No publs found, exiting!')
         exit()

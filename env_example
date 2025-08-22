@@ -8,6 +8,7 @@ CRIS_API_EP=(link to Research Publications API endpoint)
 CRIS_API_UID=uid
 CRIS_API_PW=pw
 LOGFILE=cth2crossref.log
+PUBIDFILE=crossref_pubids.log
 RUNTIME=lastrun.txt
 PUBTYPE_ID=645ba094-942d-400a-84cc-ec47ee01ec48
 START_DATE=2025-09-01

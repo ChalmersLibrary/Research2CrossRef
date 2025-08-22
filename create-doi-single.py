@@ -34,6 +34,7 @@ load_dotenv()
 crossref_ep = os.getenv("CROSSREF_API_EP")
 crossref_uid = os.getenv("CROSSREF_UID")
 crossref_pw = os.getenv("CROSSREF_PW")
+schema_version = os.getenv("SCHEMA_VERSION")
 logfile = os.getenv("LOGFILE")
 runtime_file = os.getenv("RUNTIME")
 create_doi = os.getenv("CREATE_DOI")
@@ -44,7 +45,7 @@ pubtype_id = os.getenv("PUBTYPE_ID")
 max_records = os.getenv("MAXRECORDS")
 
 # debug
-create_doi = False
+create_doi = True
 
 # Command line params
 
@@ -178,6 +179,7 @@ try:
                                 included_paper_dois.append(str(pubinc['IdentifierDoi'][0]))
 
         lang = publ['Language']['Iso']
+        
         cris_pubtype = publ['PublicationType']['NameEng']
 
         if cris_pubtype == 'Doctoral thesis':
@@ -227,9 +229,9 @@ try:
 
             # Create XML file
 
-            schema = "http://www.crossref.org/schema/5.4.0 https://www.crossref.org/schemas/crossref5.4.0.xsd"
-            namespace = "http://www.crossref.org/schema/5.4.0"
-            version = "5.4.0"
+            schema = "http://www.crossref.org/schema/" + str(schema_version) + " https://www.crossref.org/schemas/crossref" + schema_version + ".xsd"
+            namespace = "http://www.crossref.org/schema/" + str(schema_version)
+            version = schema_version
 
             xml_filename = create_date + '.xml'
 
@@ -246,9 +248,9 @@ try:
                 ET.register_namespace(prefix, uri)
 
             root = ET.Element("doi_batch", 
-                                {attr_qname: "http://www.crossref.org/schema/5.4.0 https://www.crossref.org/schemas/crossref5.4.0.xsd"},
-                                xmlns='http://www.crossref.org/schema/5.4.0',
-                                version=version)
+                                {attr_qname: "http://www.crossref.org/schema/" + str(schema_version) + " https://www.crossref.org/schemas/crossref" + str(schema_version) + ".xsd"},
+                                xmlns='http://www.crossref.org/schema/' + schema_version +'',
+                                version=schema_version)
             head = ET.SubElement(root, "head")
             ET.SubElement(head, "doi_batch_id").text = doi_id
             ET.SubElement(head, "timestamp").text = create_date
@@ -390,7 +392,7 @@ try:
             if create_doi == True:
          
                 files = {
-                        'operation': (None, 'doQueryUpload'),
+                        'operation': (None, 'doMDUpload'),
                         'login_id': (None, crossref_uid),
                         'login_passwd': (None, crossref_pw),
                         'fname': ('[filename]', open(xml_filename, 'rb'))
