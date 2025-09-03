@@ -60,13 +60,13 @@ create_doi = 'false'
 # ReplacedById:null
 # ValidatedDate:[from to *]
 # PublicationType.Id:645ba094-942d-400a-84cc-ec47ee01ec48 (doc thesis)
-# IdentifierDoi:null
+# IdentifierDoi:exists
 # IdentifierIsbn:not null
 # DataObjects:not null
 # IsLocal:true
 # IsMainFulltext:true
 
-cris_query = '_exists_%3AValidatedBy%20%26%26%20PublicationType.Id%3A%22645ba094-942d-400a-84cc-ec47ee01ec48%22%20%26%26%20ValidatedDate%3A%5B' + str(lastrun_day) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=5&start=0&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPersons.Organizations.OrganizationData.DisplayPathEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = '_exists_%3AValidatedBy%20_exists_:IdentifierDoi%2 0%26%26%20PublicationType.Id%3A%22645ba094-942d-400a-84cc-ec47ee01ec48%22%20%26%26%20ValidatedDate%3A%5B' + str(lastrun_day) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=5&start=0&selectedFields=Id%2CIdentifierDoi%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPersons.Organizations.OrganizationData.DisplayPathEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 #print(cris_query)
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
@@ -96,13 +96,14 @@ try:
             isbn = str(publ['IdentifierIsbn'][0])
             isbn_normal = isbn.replace('-', '')
             print(str(isbn_normal ))
-            doi_id = str(doi_prefix) + '/cth.diss/' + isbn_normal
+            #doi_id = str(doi_prefix) + '/cth.diss/' + isbn_normal
+            doi_id = str(publ['IdentifierDoi'][0])
             
             # Check if DOI has already been created for this item
             with open(pidfile, mode='r', ) as infile:
                 for row in csv.reader(infile, dialect='excel-tab'):
                     if row[0] == pubid and row[1] == doi_id:
-                        print('DOI has already been created for ' + pubid)
+                        print('DOI ' + doi_id + ' has already been created for ' + pubid)
                         create_doi = 'false'
 
             # Check if the publ already has a DOI, in that case the CRIS record should not be updated
