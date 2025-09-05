@@ -44,8 +44,8 @@ cris_api_ep = os.getenv("CRIS_API_EP")
 pubtype_id = os.getenv("PUBTYPE_ID")
 max_records = os.getenv("MAXRECORDS")
 
-# debug
-create_doi = True
+# debug, do not actually create a DOI
+#create_doi = "false"
 
 # Command line params
 
@@ -98,7 +98,7 @@ degree_abbrev = '' # doc or lic?
 
 # Retrieve publication record from Chalmers Research
 
-cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CConference%2CIdentifierIsbn%2CIdentifierDoi%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CIdentifiers%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CConference%2CIdentifierIsbn%2CIdentifierDoi%2CIdentifierCplPubid%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -134,6 +134,8 @@ try:
             if len(publ['IdentifierIsbn']) > 0:
                 isbn = str(publ['IdentifierIsbn'][0])
                 isbn_normal = isbn.replace('-', '')
+
+        public_pubid = str(publ['IdentifierCplPubid'][0])
 
         conference = []
         if 'Conference' in publ:
@@ -198,7 +200,7 @@ try:
                     if  serie['SerialItem']['Id'] == '3b982ea2-6c34-1014-b6a7-7ac9b7ba4313':
                         itemnumber = str(serie['SerialNumber'])
                     
-        cris_pubid = pubid
+        cris_pubid = public_pubid
         cris_url = str(cris_base_url) + cris_pubid
         create_date = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         runtime_date = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
@@ -389,7 +391,7 @@ try:
 
             print('Attempting to create a DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename)
 
-            if create_doi == True:
+            if create_doi == "true":
          
                 files = {
                         'operation': (None, 'doMDUpload'),
