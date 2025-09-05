@@ -45,7 +45,7 @@ pubtype_id = os.getenv("PUBTYPE_ID")
 max_records = os.getenv("MAXRECORDS")
 
 # debug, do not actually create a DOI
-#create_doi = "false"
+#   create_doi = "false"
 
 # Command line params
 
@@ -106,6 +106,11 @@ research_lookup_headers = {'Accept': 'application/json'}
 try:
     research_lookup_data = requests.get(url=research_lookup_url, headers=research_lookup_headers).text
     research_publ = json.loads(research_lookup_data)
+
+    # debug
+    #print(json.dumps(research_publ, indent=4, sort_keys=True))
+    #exit()
+
 
     publ = ''
     if 'Publications' in research_publ:
@@ -200,8 +205,8 @@ try:
                     if  serie['SerialItem']['Id'] == '3b982ea2-6c34-1014-b6a7-7ac9b7ba4313':
                         itemnumber = str(serie['SerialNumber'])
                     
-        cris_pubid = public_pubid
-        cris_url = str(cris_base_url) + cris_pubid
+        #cris_pubid = public_pubid
+        cris_url = str(cris_base_url) + public_pubid
         create_date = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         runtime_date = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
 
@@ -427,6 +432,7 @@ try:
                         # Read response and add updated info
                         datestring = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
                         research_publ = json.loads(research_data)
+
                         research_publ['UpdatedBy'] = cris_updated_by
                         research_publ['UpdatedDate'] = datestring
 
@@ -446,6 +452,8 @@ try:
                         research_publ['Identifiers'] = new_ids
 
                         updated_record = json.dumps(research_publ)
+
+                        #print(json.dumps(updated_record, indent=4, sort_keys=True))
 
                         try:
                             response = requests.put(research_url, json=json.loads(updated_record), headers=research_headers)
