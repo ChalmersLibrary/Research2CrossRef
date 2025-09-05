@@ -98,7 +98,7 @@ degree_abbrev = '' # doc or lic?
 
 # Retrieve publication record from Chalmers Research
 
-cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CIdentifiers%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CConference%2CIdentifierIsbn%2CIdentifierDoi%2CIdentifierCplPubid%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = 'Id%3A%22' + str(cris_pubid) + '%22&max=1&selectedFields=Id%2CTitle%2CAbstract%2CYear%2CIdentifiers%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CConference%2CIdentifierIsbn%2CIdentifierDoi%2CIdentifierCplPubid%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPersons.Organizations.OrganizationData.DisplayPathEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
 research_lookup_headers = {'Accept': 'application/json'}
@@ -298,6 +298,7 @@ try:
                     ET.SubElement(person_name, "surname").text = a['PersonData']['LastName']
                     affiliations = ET.SubElement(person_name, "affiliations")
                     for aff in a['Organizations']:
+                        department = str(aff['OrganizationData']['DisplayPathEng'])
                         institution = ET.SubElement(affiliations, "institution")
                         if str(aff['OrganizationData']['OrganizationTypes'][0]['NameEng']).startswith('Chalmers'):
                             if pubtype in ['dissertation','report','book','preprint']:
@@ -352,6 +353,8 @@ try:
             if pubtype == 'dissertation':
                 institution_publ = ET.SubElement(publication, "institution")
                 ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
+                if department:
+                    dept_publ = ET.SubElement(institution_publ, "institution_department").text = department
             if degree_abbrev:
                 degree = ET.SubElement(publication, "degree").text = degree_abbrev
             if chalmers_publ and pubtype in ['proceeding']:
@@ -362,7 +365,7 @@ try:
                 pubdate = ET.SubElement(publication, "publication_date", media_type = "online")
                 pubyear = ET.SubElement(pubdate, "year").text = year
             if isbn:
-                isbn_print = ET.SubElement(publication, "isbn").text = isbn
+                isbn_print = ET.SubElement(publication, "isbn", media_type="print").text = isbn
             else:
                 if pubtype in ['proceeding','book']:
                     isbn_print = ET.SubElement(publication, "noisbn", reason='monograph')
