@@ -26,7 +26,6 @@ crossref_pw = os.getenv("CROSSREF_PW")
 logfile = os.getenv("LOGFILE")
 pidfile = os.getenv("PUBIDFILE")
 runtime_file = os.getenv("RUNTIME")
-create_doi = os.getenv("CREATE_DOI")
 doi_prefix = os.getenv("DOI_PREFIX")
 cris_base_url = os.getenv("CRIS_BASE_URL")
 cris_api_ep = os.getenv("CRIS_API_EP")
@@ -97,6 +96,10 @@ try:
 
             xml_filename = ''
             root = ''
+            create_doi = os.getenv("CREATE_DOI")
+
+            # Debug, test
+                #create_doi = 'false'   
 
             pubid = str(publ['Id'])
             print(str(pubid ))
@@ -136,21 +139,6 @@ try:
 
             department = ''
 
-            """ included_paper_dois = []
-            if ('IncludedPapers') in publ:
-                if len(publ['IncludedPapers']) > 0:
-                    for inclp in publ['IncludedPapers']:
-                        # Retrieve DOI from inluded papers and add these
-                        incl_pubid = str(inclp['Publication'])
-                        incl_doi_request_url = str(cris_api_ep) + '?query=Id%3A%22' + incl_pubid + '%22&selectedFields=Id%2CIdentifierDoi'
-                        incl_doi_request_headers = {'Accept': 'application/json'}
-                        incl_doi_request_data = requests.get(url=incl_doi_request_url, headers=incl_doi_request_headers).text
-                        incl_doi_request_publs = json.loads(incl_doi_request_data)
-                        pubinc = incl_doi_request_publs['Publications'][0]
-                        if 'IdentifierDoi' in pubinc:
-                            if len(pubinc['IdentifierDoi']) > 0:
-                                included_paper_dois.append(str(pubinc['IdentifierDoi'][0]))
-            """
             lang = publ['Language']['Iso']
 
             disp_date = ''
@@ -311,6 +299,10 @@ try:
                         continue
                     else:
                         print("DOI was created. Status: " + str(response.status_code))
+                        # Write CRIS pubid to file
+                        with open(pidfile, 'a') as pfile:
+                            pfile.write(cris_pubid + '\t' + str(doi_id) + '\n')
+                            pfile.close()
                 except requests.exceptions.HTTPError as e:
                     print('DOI was not created, exiting now. Exception: ' + str(e))
                     with open(logfile, 'a') as lfile:
@@ -383,11 +375,6 @@ try:
             with open(logfile, 'a') as lfile:
                 lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tCreated DOI: ' + doi_id + ' for Research publ: ' + cris_url + '. Filename: ' + xml_filename + '\n')
                 lfile.close()
-
-            # Write CRIS pubid to file
-            with open(pidfile, 'a') as pfile:
-                pfile.write(cris_pubid + '\t' + str(doi_id) + '\n')
-                pfile.close()
 
             # Write runtime timestamp to file
             with open(runtime_file, 'w') as rtfile:
