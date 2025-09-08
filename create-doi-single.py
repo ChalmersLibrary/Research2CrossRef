@@ -111,7 +111,6 @@ try:
     #print(json.dumps(research_publ, indent=4, sort_keys=True))
     #exit()
 
-
     publ = ''
     if 'Publications' in research_publ:
         if len(research_publ['Publications']) > 0:

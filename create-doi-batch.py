@@ -48,9 +48,12 @@ depositor_email = 'research.lib@chalmers.se'
 cris_updated_by = 'crossref/doi'
 cris_update = 'no'
 
+# The absolute first created date for records to be included (static)
+first_created_day = '2025-08-26'
+
 # Debug, test
 cris_update = 'false'
-create_doi = 'false'
+#create_doi = 'false'
 
 # Retrieve publication records from Chalmers Research
 
@@ -66,7 +69,7 @@ create_doi = 'false'
 # IsLocal:true
 # IsMainFulltext:true
 
-cris_query = '_exists_%3AValidatedBy%20_exists_:IdentifierDoi%20%26%26%20PublicationType.Id%3A%22645ba094-942d-400a-84cc-ec47ee01ec48%22%20%26%26%20ValidatedDate%3A%5B' + str(lastrun_day) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=5&start=0&selectedFields=Id%2CIdentifierDoi%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPersons.Organizations.OrganizationData.DisplayPathEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
+cris_query = '_exists_%3AValidatedBy%20_exists_:IdentifierDoi%20%26%26%20PublicationType.Id%3A%22645ba094-942d-400a-84cc-ec47ee01ec48%22%20%26%26%20LatestEventDate%3A%5B' + str(lastrun_day) + '%20TO%20*%5D%20%26%26%20CreatedDate%3A%5B' + str(first_created_day) + '%20TO%20*%5D%20%26%26%20DataObjects.IsLocal%3Atrue%20%26%26%20DataObjects.IsMainFulltext%3Atrue%20%26%26%20IsDraft%3Afalse%20%26%26%20IsDeleted%3Afalse%20%26%26%20!_exists_%3AReplacedById%20%26%26%20_exists_%3AIdentifierIsbn&max=5&start=0&selectedFields=Id%2CIdentifierDoi%2CIdentifierCplPubid%2CTitle%2CAbstract%2CYear%2CPersons.PersonData.FirstName%2CPersons.PersonData.LastName%2CPersons.PersonData.IdentifierOrcid%2CIncludedPapers%2CLanguage.Iso%2CIdentifierIsbn%2CDispDate%2CSeries%2CKeywords%2CPersons.Organizations.OrganizationData.Id%2CPersons.Organizations.OrganizationData.OrganizationTypes.NameEng%2CPersons.Organizations.OrganizationData.Country%2CPersons.Organizations.OrganizationData.City%2CPersons.Organizations.OrganizationData.NameEng%2CPersons.Organizations.OrganizationData.DisplayPathEng%2CPublicationType.NameEng%2CPersons.Organizations.OrganizationData.Identifiers'
 #print(cris_query)
 
 research_lookup_url = str(cris_api_ep) + '?query=' + cris_query
@@ -79,6 +82,10 @@ try:
 
     if research_publs['TotalCount'] > 0:
         print('Found publs: ' + str(research_publs['TotalCount']))
+
+        # debug
+        # print(research_publs)
+        #exit()
         
         # Loop through and create new DOI:s accordingly
         
@@ -158,9 +165,12 @@ try:
                             itemnumber = str(serie['SerialNumber'])
                     
             cris_pubid = pubid
-            cris_url = str(cris_base_url) + cris_pubid
+            public_pubid = str(publ['IdentifierCplPubid'][0])
+            cris_url = str(cris_base_url) + public_pubid
             create_date = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-            runtime_date = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
+            # Back 1 day to avoid missing records due to time differences etc. (should perhaps be done in a better way)
+            rdate = datetime.datetime.now() - datetime.timedelta(days=1)
+            runtime_date = rdate.strftime("%Y-%m-%d:%H:%M:%S")  
 
             # Clean relevant text fields
             if abstract_txt:
