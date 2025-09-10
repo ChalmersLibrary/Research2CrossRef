@@ -96,6 +96,7 @@ try:
 
             xml_filename = ''
             root = ''
+            enum = 0
             create_doi = os.getenv("CREATE_DOI")
 
             # Debug, test
@@ -178,7 +179,7 @@ try:
             namespace = "http://www.crossref.org/schema/5.4.0"
             version = "5.4.0"
 
-            xml_filename = create_date + '.xml'
+            xml_filename = create_date + '_' + str(enum) + '.xml'
 
             ns = namespace
             xsi = "http://www.w3.org/2001/XMLSchema-instance" 
@@ -286,7 +287,7 @@ try:
                         'fname': ('[filename]', open(xml_filename, 'rb'))
                 }
 
-                print('Creating DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename + '\n')
+                print('Trying to create a DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename + '\n')
 
                 try:
                     response = requests.post(crossref_ep, files=files)
@@ -299,6 +300,9 @@ try:
                         continue
                     else:
                         print("DOI was created. Status: " + str(response.status_code))
+                        with open(logfile, 'a') as lfile:
+                            lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tCreated DOI: ' + doi_id + ' for Research publ: ' + cris_url + '. Filename: ' + xml_filename + '\n')
+                            lfile.close()
                         # Write CRIS pubid to file
                         with open(pidfile, 'a') as pfile:
                             pfile.write(cris_pubid + '\t' + str(doi_id) + '\n')
@@ -369,17 +373,17 @@ try:
                         lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tResearch CRIS publication ' + cris_pubid + ' was NOT updated (existing DOI).\n')
                         lfile.close()
             else:
-                print("DOI " + doi_id + " was NOT created, due to system settings or it already exists")      
-
-            # Write to log
-            with open(logfile, 'a') as lfile:
-                lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tCreated DOI: ' + doi_id + ' for Research publ: ' + cris_url + '. Filename: ' + xml_filename + '\n')
-                lfile.close()
+                print("DOI " + doi_id + " was NOT created, due to system settings or it already exists")
+                with open(logfile, 'a') as lfile:
+                        lfile.write('DOI ' + doi_id + ' was NOT created, due to system settings or it already exists\n')
+                        lfile.close()      
 
             # Write runtime timestamp to file
             with open(runtime_file, 'w') as rtfile:
                 rtfile.write(runtime_date + '\n')
                 rtfile.close()
+
+            enum+=1    
 
         sleep(5)
 
