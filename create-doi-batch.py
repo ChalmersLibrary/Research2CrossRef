@@ -375,7 +375,7 @@ try:
             else:
                 print("DOI " + doi_id + " was NOT created, due to system settings or it already exists")
                 with open(logfile, 'a') as lfile:
-                        lfile.write('DOI ' + doi_id + ' was NOT created, due to system settings or it already exists\n')
+                        lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ' DOI ' + doi_id + ' was NOT created, due to system settings or it already exists\n')
                         lfile.close()      
 
             # Write runtime timestamp to file
