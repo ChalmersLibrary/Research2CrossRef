@@ -267,15 +267,6 @@ try:
             doi = ET.SubElement(doi_data, "doi").text = doi_id
             resource = ET.SubElement(doi_data, "resource").text = cris_url
 
-            # Create file
-            dom = xml.dom.minidom.parseString(ET.tostring(root))
-            xml_string = dom.toprettyxml()
-            part1, part2 = xml_string.split('?>')
-
-            with open(xml_filename, 'w') as xfile:
-                xfile.write(part1 + 'encoding=\"{}\"?>'.format(m_encoding) + part2)
-                xfile.close()
-            
             # Post XML to CrossRef endpoint
             # https://www.crossref.org/documentation/register-maintain-records/direct-deposit-xml/https-post/
 
@@ -289,6 +280,15 @@ try:
 
                 print('Trying to create a DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename + '\n')
 
+                # Create file
+                dom = xml.dom.minidom.parseString(ET.tostring(root))
+                xml_string = dom.toprettyxml()
+                part1, part2 = xml_string.split('?>')
+
+                with open(xml_filename, 'w') as xfile:
+                    xfile.write(part1 + 'encoding=\"{}\"?>'.format(m_encoding) + part2)
+                    xfile.close()
+            
                 try:
                     response = requests.post(crossref_ep, files=files)
                     if response.status_code == 401:
