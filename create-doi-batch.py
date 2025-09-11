@@ -92,11 +92,12 @@ try:
         pubtype = 'dissertation'
         degree_abbrev = 'PhD'
 
+        enum = 0
+
         for publ in research_publs['Publications']:
 
             xml_filename = ''
             root = ''
-            enum = 0
             create_doi = os.getenv("CREATE_DOI")
 
             # Debug, test
@@ -168,6 +169,27 @@ try:
             if title_txt:
                 title_clean = BeautifulSoup(title_txt.rstrip('\r\n').strip(), "lxml").text
 
+            # Check if DOI already exists in CrossRef (and skip to next publ if so)
+            print('Checking if DOI ' + doi_id + ' already exists in CrossRef...')
+            doi_check_url = 'https://doi.org/' + doi_id
+            try:
+                cresponse = requests.get(doi_check_url)
+                if cresponse.status_code == 200 or cresponse.status_code == 301 or cresponse.status_code == 302:
+                    create_doi = 'false'
+                    print('DOI ' + doi_id + ' already exists in CrossRef and will NOT be created again! Skipping to next publication...')
+                    continue
+                elif cresponse.status_code == 404:
+                    create_doi = 'true'
+                else:
+                    print('Something went wrong when checking existing DOI in CrossRef. Response: ' + str(cresponse.reason))
+                    with open(logfile, 'a') as lfile:
+                        lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tChecking existing DOI in CrossRef for: ' + doi_id + ' failed! Response: ' + str(cresponse.reason) + '\n\n')
+                        lfile.close()
+                    create_doi = 'true'
+            except requests.exceptions.HTTPError as e:
+                print('DOI lookup failed: ' + str(e))
+                create_doi = 'true'
+                
             # Write to log
             with open(logfile, 'a') as lfile:
                 lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tTrying to create a new DOI: ' + doi_id + ' for Research publ: ' + cris_url + '\n')
@@ -387,10 +409,8 @@ try:
 
         sleep(5)
 
-        # debug
-        # exit()
     else:
-        print('No publs found, exiting!')
+        print('No relevant publications found, exiting!')
         exit()
 
 except requests.exceptions.HTTPError as e:
