@@ -405,10 +405,8 @@ try:
                 rtfile.write(runtime_date + '\n')
                 rtfile.close()
 
-            enum+=1    
-
-        sleep(5)
-
+            enum+=1
+            sleep(5)  # To avoid overloading the system
     else:
         print('No relevant publications found, exiting!')
         exit()
