@@ -84,7 +84,7 @@ try:
 
         # debug
         # print(research_publs)
-        #exit()
+        # exit()
         
         # Loop through and create new DOI:s accordingly
         
@@ -101,7 +101,7 @@ try:
             create_doi = os.getenv("CREATE_DOI")
 
             # Debug, test
-                #create_doi = 'false'   
+            # create_doi = 'false'   
 
             pubid = str(publ['Id'])
             print(str(pubid ))
@@ -415,5 +415,4 @@ except requests.exceptions.HTTPError as e:
     print("error")
     exit()
 
-# finish here
 exit()
