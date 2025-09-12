@@ -292,15 +292,7 @@ try:
             # https://www.crossref.org/documentation/register-maintain-records/direct-deposit-xml/https-post/
 
             if create_doi == 'true':                    
-                files = {
-                        'operation': (None, 'doMDUpload'),
-                        'login_id': (None, crossref_uid),
-                        'login_passwd': (None, crossref_pw),
-                        'fname': ('[filename]', open(xml_filename, 'rb'))
-                }
-
-                print('Trying to create a DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename + '\n')
-
+                
                 # Create file
                 dom = xml.dom.minidom.parseString(ET.tostring(root))
                 xml_string = dom.toprettyxml()
@@ -309,6 +301,15 @@ try:
                 with open(xml_filename, 'w') as xfile:
                     xfile.write(part1 + 'encoding=\"{}\"?>'.format(m_encoding) + part2)
                     xfile.close()
+
+                files = {
+                        'operation': (None, 'doMDUpload'),
+                        'login_id': (None, crossref_uid),
+                        'login_passwd': (None, crossref_pw),
+                        'fname': ('[filename]', open(xml_filename, 'rb'))
+                }
+
+                print('Trying to create a DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename + '\n')
             
                 try:
                     response = requests.post(crossref_ep, files=files)
