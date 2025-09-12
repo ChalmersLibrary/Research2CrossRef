@@ -175,7 +175,6 @@ try:
             try:
                 cresponse = requests.get(doi_check_url)
                 if cresponse.status_code == 200 or cresponse.status_code == 301 or cresponse.status_code == 302:
-                    create_doi = 'false'
                     print('DOI ' + doi_id + ' already exists in CrossRef and will NOT be created again! Skipping to next publication...')
                     continue
                 elif cresponse.status_code == 404:
@@ -190,11 +189,6 @@ try:
                 print('DOI lookup failed: ' + str(e))
                 create_doi = 'true'
                 
-            # Write to log
-            with open(logfile, 'a') as lfile:
-                lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tTrying to create a new DOI: ' + doi_id + ' for Research publ: ' + cris_url + '\n')
-                lfile.close()
-
             # Create XML file
 
             schema = "http://www.crossref.org/schema/5.4.0 https://www.crossref.org/schemas/crossref5.4.0.xsd"
@@ -202,6 +196,11 @@ try:
             version = "5.4.0"
 
             xml_filename = create_date + '_' + str(enum) + '.xml'
+
+            # Write to log
+            with open(logfile, 'a') as lfile:
+                lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tTrying to create a new DOI: ' + doi_id + ' for Research publ: ' + cris_url + ' using file: ' + xml_filename + '\n')
+                lfile.close()
 
             ns = namespace
             xsi = "http://www.w3.org/2001/XMLSchema-instance" 
