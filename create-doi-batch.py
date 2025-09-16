@@ -79,6 +79,10 @@ try:
     research_publs = json.loads(research_lookup_data)
     #print(research_publs)
 
+    with open(logfile, 'a') as lfile:
+        lfile.write(datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '\tLooking up new publications. Found: ' + str(research_publs['TotalCount']) + ' for DOI creation.\n')
+        lfile.close()
+
     if research_publs['TotalCount'] > 0:
         print('Found publs: ' + str(research_publs['TotalCount']))
 
