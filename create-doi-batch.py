@@ -281,7 +281,8 @@ try:
             institution_publ = ET.SubElement(publication, "institution")
             ror_publ = ET.SubElement(institution_publ, "institution_id", type="ror").text = ror_id
             if department:
-                dept_publ = ET.SubElement(institution_publ, "institution_department").text = department
+                if department.startswith('Chalmers'):
+                    dept_publ = ET.SubElement(institution_publ, "institution_department").text = department
             if degree_abbrev:
                 degree = ET.SubElement(publication, "degree").text = degree_abbrev
             if isbn:
