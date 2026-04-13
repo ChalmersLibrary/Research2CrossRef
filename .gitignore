@@ -4,4 +4,7 @@ cth2crossref.log
 .idea
 lastrun.txt
 *.xml
+*.log
+*.csv
+*.json
 

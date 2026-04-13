@@ -107,10 +107,6 @@ try:
     research_lookup_data = requests.get(url=research_lookup_url, headers=research_lookup_headers).text
     research_publ = json.loads(research_lookup_data)
 
-    # debug
-    #print(json.dumps(research_publ, indent=4, sort_keys=True))
-    #exit()
-
     publ = ''
     if 'Publications' in research_publ:
         if len(research_publ['Publications']) > 0:

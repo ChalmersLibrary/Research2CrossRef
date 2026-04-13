@@ -256,9 +256,10 @@ try:
                                 instname = ET.SubElement(institution, "institution_name").text = aff['OrganizationData']['NameEng']
                             else:
                                 instname = ET.SubElement(institution, "institution_acronym").text = aff['OrganizationData']['NameEng']
-                        for orgid in aff['OrganizationData']['Identifiers']:
-                            if orgid['Type']['Value'] == 'ROR_ID':
-                                ror = ET.SubElement(institution, "institution_id", type="ror").text = str(orgid['Value'])
+                        if 'Identifiers' in aff['OrganizationData'] and len(aff['OrganizationData']['Identifiers']) > 0:
+                            for orgid in aff['OrganizationData']['Identifiers']:
+                                if orgid['Type']['Value'] == 'ROR_ID':
+                                    ror = ET.SubElement(institution, "institution_id", type="ror").text = str(orgid['Value'])
                         if 'City' in aff['OrganizationData']:
                             instplace = ET.SubElement(institution, "institution_place").text = str(aff['OrganizationData']['City']) + ', ' + str(aff['OrganizationData']['Country'])
                         else:    
